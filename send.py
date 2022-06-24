@@ -57,6 +57,8 @@ def send(local_para):
     pool = Pool(pool_num)
     gradient_list = np.append(gradient_list, np.zeros(GRADIENT_SIZE * AGGREGATOR_SIZE - PARA_LEN, dtype=np.int32))
     step = math.ceil(AGGREGATOR_SIZE / pool_num)
+    # segmentation fault 问题？
+    # send_grad(dst_ip, gradient_list[i * GRADIENT_SIZE:(i + step) * GRADIENT_SIZE], i,)
     for i in range(0, AGGREGATOR_SIZE, step):
         if (i + step) * GRADIENT_SIZE <= GRADIENT_SIZE * AGGREGATOR_SIZE:
             pool.apply_async(send_grad, (dst_ip, gradient_list[i * GRADIENT_SIZE:(i + step) * GRADIENT_SIZE], i,))
