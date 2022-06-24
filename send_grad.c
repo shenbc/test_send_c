@@ -76,3 +76,9 @@ printf("dll has called!\n");
 return ;
 
 }
+
+// int main()
+// {
+//     send_grad_thread(0,1,1,0,1);
+//     return 0;
+// }
