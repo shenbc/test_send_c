@@ -2,40 +2,41 @@ import math
 from ctypes import *
 from multiprocessing import Pool
 import numpy as np
-from cffi import FFI
 
-GRADIENT_SIZE = 128
+GRADIENT_NUM_PER_PACKET = 128
 AGGREGATOR_SIZE = 199665
 PARA_LEN = 25557032
 
-dst_ip = "172.16.200.8"
+_send = cdll.LoadLibrary("./send.so") 
+
+_send.send_gradients.argtypes = [
+    POINTER(c_uint32), 
+    c_int, 
+    c_int, 
+    c_uint32, 
+    c_int, 
+    c_uint32
+]
+
+
+dst_ip_str = "172.16.200.32"
 node_id = 1
 pool_num = 5
-
 
 def ip2int(ip):
     ip_list = ip.strip().split('.')
     ip_int = int(ip_list[0])*256**3+int(ip_list[1])*256**2+int(ip_list[2])*256**1+int(ip_list[3])*256**0
     return ip_int
 
+def c_send_wrapper(gradient: "numpy.array", offset: int, packet_num, dst_ip: int, worker_id, aggregator_index):
+    c_pointer_gradient=gradient.ctypes.data_as(POINTER(c_uint32))
+    c_offset=c_int(offset)
+    c_packet_num=c_int(packet_num)
+    c_dst_ip=c_uint32(dst_ip)
+    c_worker_id=c_int(worker_id)
+    c_aggregator_index=c_uint32(aggregator_index)
 
-def send_grad(dsp_ip, gradient_list, start_index):
-    print("--------- Send gradient start: %d ---------" % start_index)
-
-    gradient_len = len(gradient_list)
-    gradient_array = (c_uint32 * gradient_len)()
-    gradient_array[:] = gradient_list
-    # gradient_array = (c_uint32 * gradient_len)(*gradient_list)
-    packet_num = gradient_len // GRADIENT_SIZE
-    dst_ip = ip2int(dsp_ip)
-
-    send_grad_dll = cdll.LoadLibrary("./send_grad.o") 
-
-    send_grad_dll.send_grad_thread.argtypes = [POINTER(c_uint32 * gradient_len), c_int, c_int, c_uint32, c_int]
-    send_grad_dll.send_grad_thread(gradient_array, packet_num, start_index, dst_ip, node_id)
-
-    print("--------- Send gradient finish ---------")
-
+    _send.send_gradients(c_pointer_gradient, c_offset, c_packet_num, c_dst_ip, c_worker_id, c_aggregator_index)
 
 def send(local_para):
     # gradient_list = local_para.cpu().numpy()
@@ -65,7 +66,9 @@ def send(local_para):
     pool.join()
     
 def single_process_send():
-    pass
+    test_data=np.arange(1000)
+    c_send_wrapper(test_data, 0, int(len(test_data) / GRADIENT_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
+    
 
 if __name__ =="__main__":
     single_process_send()
