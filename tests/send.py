@@ -1,13 +1,8 @@
-from operator import mod
-import sys
 import math
 from ctypes import *
 from multiprocessing import Pool
 import numpy as np
-import torch
-from utils.comm_utils import int_to_float, float_to_int
-
-import torchvision.models as m
+from cffi import FFI
 
 GRADIENT_SIZE = 128
 AGGREGATOR_SIZE = 199665
@@ -34,14 +29,12 @@ def send_grad(dsp_ip, gradient_list, start_index):
     packet_num = gradient_len // GRADIENT_SIZE
     dst_ip = ip2int(dsp_ip)
 
-    send_grad_dll = cdll.LoadLibrary("./send_grad.o") # 务必用‘./’指明是当前目录下的
+    send_grad_dll = cdll.LoadLibrary("./send_grad.o") 
 
     send_grad_dll.send_grad_thread.argtypes = [POINTER(c_uint32 * gradient_len), c_int, c_int, c_uint32, c_int]
     send_grad_dll.send_grad_thread(gradient_array, packet_num, start_index, dst_ip, node_id)
 
     print("--------- Send gradient finish ---------")
-
-    return
 
 
 def send(local_para):
@@ -71,17 +64,8 @@ def send(local_para):
     pool.close()
     pool.join()
     
-
+def single_process_send():
+    pass
 
 if __name__ =="__main__":
-    model = m.vgg16().to('cpu')
-    # para = torch.nn.utils.parameters_to_vector(model.parameters()).clone().detach().tolist()
-    # send(float_to_int(para))
-    # send(model.parameters())
-
-    parameters = model.parameters()
-    for p in parameters:
-        numpy_para = p.detach().cpu().numpy()
-        # print(type(numpy_para))
-        # print(numpy_para.shape)
-    send(numpy_para)
+    single_process_send()
