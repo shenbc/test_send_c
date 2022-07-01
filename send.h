@@ -14,7 +14,7 @@
 
 #define TENSOR_NUM 128
 
-struct payload_t {
+struct packet_t {
     __u32 worker_bitmap;
     __u32 aggregator_index;
     __u32 gradient_index;

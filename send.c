@@ -15,7 +15,7 @@ void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst
 		exit(-1);
 	}
 
-    int send_buff_size = 256 * 1024;
+    int send_buff_size = 4096 * 4096;
     setsockopt(socket_fd,SOL_SOCKET,SO_SNDBUF,&send_buff_size,sizeof(send_buff_size));
 
     int bitmap = 1 << (worker_id-1);
@@ -24,14 +24,14 @@ void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst
     start=clock();
 
     for (int i=0; i<packet_num; i++){
-        struct payload_t payload;
+        struct packet_t packet;
 
-        payload.worker_bitmap = htonl(bitmap);
-        payload.aggregator_index= htonl(aggregator_index);
-        payload.gradient_index = htonl(offset + i);
-        memcpy(payload.gradient, gradient_array + i * TENSOR_NUM, TENSOR_NUM * sizeof(__u32));
+        packet.worker_bitmap = htonl(bitmap);
+        packet.aggregator_index= htonl(aggregator_index);
+        packet.gradient_index = htonl(offset + i);
+        memcpy(packet.gradient, gradient_array + i * TENSOR_NUM, TENSOR_NUM * sizeof(__u32));
         
-	    if(sendto(socket_fd, &payload, sizeof(struct payload_t), 0, (struct sockaddr *)&sock_send, sizeof(struct sockaddr_in)) < 0){
+	    if(sendto(socket_fd, &packet, sizeof(struct packet_t), 0, (struct sockaddr *)&sock_send, sizeof(struct sockaddr_in)) < 0){
             perror("ERROR: Failed to call sendto()");
 		    exit(-1);
         }
@@ -44,15 +44,20 @@ void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst
 }
 
 // int main(int argc, char **argv){
-//     __u32 buffer_value[1000000];
-
-//     for (int i=0; i < 1000000; i++){
+//     const __u32 buffer_size=100000;
+//     printf("Init buffer...\n");
+    
+//     __u32 buffer_value[buffer_size];
+    
+//     printf("Size of data: %ld MB\n", buffer_size/1024/1024*sizeof(int));
+    
+//     for (__u32 i=0; i < buffer_size; i++){
 //         buffer_value[i]=htonl(i);
 //     }
     
-//     printf("Size of data: %ld MB\n", sizeof(__u32)*1000000/1024/1024);
-
-//     send_gradients(buffer_value, 0, 1000000/TENSOR_NUM, inet_addr("172.16.200.32"),1,2);
+//     for (int i = 0; i< 100; i++){
+//         send_gradients(buffer_value, 0, buffer_size/TENSOR_NUM, inet_addr("172.16.200.32"),1,2);
+//     }
 
 //     return 0;
 // }
