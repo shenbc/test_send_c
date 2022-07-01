@@ -1,12 +1,14 @@
-import math
 from ctypes import *
 from multiprocessing import Pool
+import sys
 import time
 import numpy as np
 
 TENSOR_NUM_PER_PACKET = 128
 AGGREGATOR_SIZE = 199665
 PARA_LEN = 25557032
+
+dst_ip_str = "172.16.210.33"
 
 _send = cdll.LoadLibrary("./send.so") 
 
@@ -19,8 +21,6 @@ _send.send_gradients.argtypes = [
     c_uint32
 ]
 
-dst_ip_str = "172.16.200.32"
-node_id = 1
 
 def ip2int(ip):
     ip_list = ip.strip().split('.')
@@ -36,43 +36,41 @@ def c_send_wrapper(gradient: "numpy.array", offset: int, packet_num, dst_ip: int
     c_aggregator_index=c_uint32(aggregator_index)
 
     _send.send_gradients(c_pointer_gradient, c_offset, c_packet_num, c_dst_ip, c_worker_id, c_aggregator_index)
+
+def single_process_send(data):
+    c_send_wrapper(data, 0, int(len(data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
     
-def single_process_send():
-    test_data=np.arange(100000)
-    c_send_wrapper(test_data, 0, int(len(test_data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
-    
-def multi_process_send(process_pool):
-   
-    test_data=np.arange(100000)
-    
-    total_packet = int(len(test_data) / TENSOR_NUM_PER_PACKET)
+def multi_process_send(process_pool, data):
+    total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
     packet_num_per_process= int(total_packet / process_num)
     remained_packets= int(total_packet % process_num)
     offset=0
 
     for i in range(process_num):
         if i != process_num-1:
-            process_pool.apply_async(c_send_wrapper, (test_data, offset, packet_num_per_process, ip2int(dst_ip_str), 0, 0))
+            process_pool.apply_async(c_send_wrapper, (data, offset, packet_num_per_process, ip2int(dst_ip_str), 0, 0))
         else:
-            process_pool.apply_async(c_send_wrapper, (test_data, offset, packet_num_per_process+ remained_packets, ip2int(dst_ip_str), 0, 0))
+            process_pool.apply_async(c_send_wrapper, (data, offset, packet_num_per_process+ remained_packets, ip2int(dst_ip_str), 0, 0))
 
         offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
 
 if __name__ =="__main__":
+    test_data=np.arange(100000000, dtype=np.int32)
+    data_size=(sys.getsizeof(test_data)-96)/1024/1024/1024 # GB
+    print("Test data {} GB".format(str(data_size)))
+
     start= time.time()
-    single_process_send()
+    single_process_send(test_data)
     end=time.time()
-    print("Single process cost: {} sec.".format(str(end-start)))
+    print("Single process cost: {} sec; Throuthput {} GBps".format(str(end-start), str(data_size/(end-start))))
     
     process_num=20
     process_pool = Pool(process_num)
     
     start= time.time()
-    multi_process_send(process_pool)
-    end=time.time()
-    
+    multi_process_send(process_pool,test_data)    
     process_pool.close()
+    end=time.time()
     process_pool.join()
     
-
-    print("{} processes cost: {} sec.".format(str(process_num), str(end-start)))
+    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))

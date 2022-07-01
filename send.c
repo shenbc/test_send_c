@@ -1,9 +1,7 @@
 #include"send.h"
 
 void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst_ip, int worker_id, __u32 aggregator_index) {
-    
-    printf("(C): Sending Gradients...\n");
-    
+    // printf("(C): Sending Gradients...\n");
     int socket_fd;
 	struct sockaddr_in sock_send;
     memset(&sock_send, 0, sizeof(struct sockaddr_in));
