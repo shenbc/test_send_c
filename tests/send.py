@@ -18,7 +18,6 @@ _send.send_gradients.argtypes = [
     c_uint32
 ]
 
-
 dst_ip_str = "172.16.200.32"
 node_id = 1
 pool_num = 5
@@ -66,7 +65,7 @@ def send(local_para):
     pool.join()
     
 def single_process_send():
-    test_data=np.arange(1000)
+    test_data=np.arange(100000)
     c_send_wrapper(test_data, 0, int(len(test_data) / GRADIENT_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
     
 
