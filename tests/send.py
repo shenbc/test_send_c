@@ -1,9 +1,10 @@
 import math
 from ctypes import *
 from multiprocessing import Pool
+import time
 import numpy as np
 
-GRADIENT_NUM_PER_PACKET = 128
+TENSOR_NUM_PER_PACKET = 128
 AGGREGATOR_SIZE = 199665
 PARA_LEN = 25557032
 
@@ -20,7 +21,6 @@ _send.send_gradients.argtypes = [
 
 dst_ip_str = "172.16.200.32"
 node_id = 1
-pool_num = 5
 
 def ip2int(ip):
     ip_list = ip.strip().split('.')
@@ -36,38 +36,43 @@ def c_send_wrapper(gradient: "numpy.array", offset: int, packet_num, dst_ip: int
     c_aggregator_index=c_uint32(aggregator_index)
 
     _send.send_gradients(c_pointer_gradient, c_offset, c_packet_num, c_dst_ip, c_worker_id, c_aggregator_index)
-
-def send(local_para):
-    # gradient_list = local_para.cpu().numpy()
-    # gradient_list = local_para.to('cpu').numpy()
-    # gradient_list = torch.tensor(local_para, device = 'cpu')
-    # gradient_list = np.array(local_para)
-    # gradient_list = gradient_list.astype(np.float)
-    gradient_list = local_para
-    gradient_list = (gradient_list * 100000000).astype(np.int32)
-
-    
-    pool = Pool(pool_num)
-    gradient_list = np.append(gradient_list, np.zeros(GRADIENT_SIZE * AGGREGATOR_SIZE - PARA_LEN, dtype=np.int32))
-    step = math.ceil(AGGREGATOR_SIZE / pool_num)
-    # segmentation fault 问题？
-    # send_grad(dst_ip, gradient_list[i * GRADIENT_SIZE:(i + step) * GRADIENT_SIZE], i,)
-    for i in range(0, AGGREGATOR_SIZE, step):
-        if (i + step) * GRADIENT_SIZE <= GRADIENT_SIZE * AGGREGATOR_SIZE:
-            pool.apply_async(send_grad, (dst_ip, gradient_list[i * GRADIENT_SIZE:(i + step) * GRADIENT_SIZE], i,))
-            # send_queue.add_task(send_grad, parent_ips, gradient_list[i*GRADIENT_SIZE:(i+step)*GRADIENT_SIZE], i)
-        else:
-            pool.apply_async(send_grad, (dst_ip, gradient_list[i * GRADIENT_SIZE:], i,))
-            # send_queue.add_task(send_grad, parent_ips, gradient_list[i*GRADIENT_SIZE:], i)
-
-    # send_queue.join()
-    pool.close()
-    pool.join()
     
 def single_process_send():
     test_data=np.arange(100000)
-    c_send_wrapper(test_data, 0, int(len(test_data) / GRADIENT_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
+    c_send_wrapper(test_data, 0, int(len(test_data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
     
+def multi_process_send(process_pool):
+   
+    test_data=np.arange(100000)
+    
+    total_packet = int(len(test_data) / TENSOR_NUM_PER_PACKET)
+    packet_num_per_process= int(total_packet / process_num)
+    remained_packets= int(total_packet % process_num)
+    offset=0
+
+    for i in range(process_num):
+        if i != process_num-1:
+            process_pool.apply_async(c_send_wrapper, (test_data, offset, packet_num_per_process, ip2int(dst_ip_str), 0, 0))
+        else:
+            process_pool.apply_async(c_send_wrapper, (test_data, offset, packet_num_per_process+ remained_packets, ip2int(dst_ip_str), 0, 0))
+
+        offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
 
 if __name__ =="__main__":
+    start= time.time()
     single_process_send()
+    end=time.time()
+    print("Single process cost: {} sec.".format(str(end-start)))
+    
+    process_num=20
+    process_pool = Pool(process_num)
+    
+    start= time.time()
+    multi_process_send(process_pool)
+    end=time.time()
+    
+    process_pool.close()
+    process_pool.join()
+    
+
+    print("{} processes cost: {} sec.".format(str(process_num), str(end-start)))
