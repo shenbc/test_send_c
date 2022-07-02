@@ -40,7 +40,7 @@ def c_send_wrapper(gradient: "numpy.array", offset: int, packet_num, dst_ip: int
 def single_process_send(data):
     c_send_wrapper(data, 0, int(len(data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
     
-def multi_process_send(process_pool, data):
+def multi_process_send(process_pool, process_num, data):
     total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
     packet_num_per_process= int(total_packet / process_num)
     remained_packets= int(total_packet % process_num)
@@ -64,13 +64,14 @@ if __name__ =="__main__":
     end=time.time()
     print("Single process cost: {} sec; Throuthput {} GBps".format(str(end-start), str(data_size/(end-start))))
     
-    process_num=20
+    process_num=4
     process_pool = Pool(process_num)
     
     start= time.time()
-    multi_process_send(process_pool,test_data)    
+    multi_process_send(process_pool,process_num, test_data)    
     process_pool.close()
-    end=time.time()
     process_pool.join()
+    end=time.time()
+   
     
     print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
