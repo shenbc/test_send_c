@@ -1,7 +1,6 @@
 #include"send.h"
 
-void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst_ip, int worker_id, __u32 aggregator_index) {
-    // printf("(C): Sending Gradients...\n");
+void send_gradients(__u32 *gradient_array, int packet_num, __u32 dst_ip, int worker_id, __u32 aggregator_index, int tensor_index) {
     int socket_fd;
 	struct sockaddr_in sock_send;
     memset(&sock_send, 0, sizeof(struct sockaddr_in));
@@ -26,8 +25,14 @@ void send_gradients(__u32 *gradient_array, int offset, int packet_num, __u32 dst
 
         packet.worker_bitmap = htonl(bitmap);
         packet.aggregator_index= htonl(aggregator_index);
-        packet.gradient_index = htonl(offset + i);
+        packet.gradient_index = htonl(tensor_index + i);
         memcpy(packet.gradient, gradient_array + i * TENSOR_NUM, TENSOR_NUM * sizeof(__u32));
+
+        // for endian conversion
+        for (int j=0; j<TENSOR_NUM ; j++)
+        {
+            packet.gradient[j] = htonl(packet.gradient[j]);
+        }
         
 	    if(sendto(socket_fd, &packet, sizeof(struct packet_t), 0, (struct sockaddr *)&sock_send, sizeof(struct sockaddr_in)) < 0){
             perror("ERROR: Failed to call sendto()");
