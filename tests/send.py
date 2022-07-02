@@ -15,10 +15,10 @@ _send = cdll.LoadLibrary("./send.so")
 _send.send_gradients.argtypes = [
     POINTER(c_uint32), 
     c_int, 
-    c_int, 
     c_uint32, 
     c_int, 
-    c_uint32
+    c_uint32,
+    c_int
 ]
 
 
@@ -27,20 +27,22 @@ def ip2int(ip):
     ip_int = int(ip_list[0])*256**3+int(ip_list[1])*256**2+int(ip_list[2])*256**1+int(ip_list[3])*256**0
     return ip_int
 
-def c_send_wrapper(gradient: "numpy.array", offset: int, packet_num, dst_ip: int, worker_id, aggregator_index):
+def c_send_wrapper(gradient: "numpy.array", packet_num, dst_ip: int, worker_id, aggregator_index, tensor_index: int):
     c_pointer_gradient=gradient.ctypes.data_as(POINTER(c_uint32))
-    c_offset=c_int(offset)
     c_packet_num=c_int(packet_num)
     c_dst_ip=c_uint32(dst_ip)
     c_worker_id=c_int(worker_id)
     c_aggregator_index=c_uint32(aggregator_index)
-
-    _send.send_gradients(c_pointer_gradient, c_offset, c_packet_num, c_dst_ip, c_worker_id, c_aggregator_index)
+    c_tensor_index=c_int(tensor_index)
+    _send.send_gradients(c_pointer_gradient, c_packet_num, c_dst_ip, c_worker_id, c_aggregator_index, c_tensor_index)
 
 def single_process_send(data):
-    c_send_wrapper(data, 0, int(len(data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0)
+    c_send_wrapper(data, int(len(data) / TENSOR_NUM_PER_PACKET), ip2int(dst_ip_str),0,0,0)
     
-def multi_process_send(process_pool, process_num, data):
+def multi_process_send(process_num, data):
+    start=time.time()
+
+    process_pool = Pool(process_num)
     total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
     packet_num_per_process= int(total_packet / process_num)
     remained_packets= int(total_packet % process_num)
@@ -48,11 +50,17 @@ def multi_process_send(process_pool, process_num, data):
 
     for i in range(process_num):
         if i != process_num-1:
-            process_pool.apply_async(c_send_wrapper, (data, offset, packet_num_per_process, ip2int(dst_ip_str), 0, 0))
+            process_pool.apply_async(c_send_wrapper, (data[offset: offset+packet_num_per_process * TENSOR_NUM_PER_PACKET],  packet_num_per_process, ip2int(dst_ip_str), 0, 0,offset))
         else:
-            process_pool.apply_async(c_send_wrapper, (data, offset, packet_num_per_process+ remained_packets, ip2int(dst_ip_str), 0, 0))
-
+            process_pool.apply_async(c_send_wrapper, (data[offset : ], packet_num_per_process + remained_packets, ip2int(dst_ip_str), 0, 0, offset))
+        
         offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
+    
+    process_pool.close()
+    process_pool.join()
+
+    end=time.time()
+    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
 
 if __name__ =="__main__":
     test_data=np.arange(100000000, dtype=np.int32)
@@ -64,14 +72,7 @@ if __name__ =="__main__":
     end=time.time()
     print("Single process cost: {} sec; Throuthput {} GBps".format(str(end-start), str(data_size/(end-start))))
     
-    process_num=4
-    process_pool = Pool(process_num)
+    multi_process_send(10, test_data)    
+
     
-    start= time.time()
-    multi_process_send(process_pool,process_num, test_data)    
-    process_pool.close()
-    process_pool.join()
-    end=time.time()
-   
     
-    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
