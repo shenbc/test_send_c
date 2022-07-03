@@ -36,7 +36,7 @@ int send_grad_thread(__u32 * gradient_array, int packet_num, int start_index, __
 		exit(-1);
 	}
 
-    int size = 256 * 1024; //larger may work ！！！
+    int size = 256 * 1024;
     setsockopt(socket_fd,SOL_SOCKET,SO_SNDBUF,&size,sizeof(size));
 
     int bitmap = 1 << (node_id-1);
