@@ -1,0 +1,1 @@
+gcc send.c -fpic -shared -O3 -o send.so
