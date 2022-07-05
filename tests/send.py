@@ -3,6 +3,7 @@ from multiprocessing import Pool
 import sys
 import time
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
 
 TENSOR_NUM_PER_PACKET = 128
 AGGREGATOR_SIZE = 199665
@@ -62,6 +63,58 @@ def multi_process_send(process_num, data):
     end=time.time()
     print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
 
+# multi process send through concurrent.futures.ThreadPoolExecutor
+def multi_process_send_futures(process_num, data):
+    start=time.time()
+
+    executor=ThreadPoolExecutor()
+    total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
+    packet_num_per_process= int(total_packet / process_num)
+    remained_packets= int(total_packet % process_num)
+    offset=0
+    f = []
+
+    for i in range(process_num):
+        if i != process_num-1:
+            f.append(executor.submit(c_send_wrapper, data[offset: offset+packet_num_per_process * TENSOR_NUM_PER_PACKET],  packet_num_per_process, ip2int(dst_ip_str), 0, 0,offset))
+        else:
+            f.append(executor.submit(c_send_wrapper, data[offset : ], packet_num_per_process + remained_packets, ip2int(dst_ip_str), 0, 0, offset))
+        
+        offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
+    
+    
+    executor.shutdown(wait=True)
+    # for i in range(process_num):
+    #     print(f'task{i}是否完成: {f[i].done()}')
+    end=time.time()
+    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
+
+# multi process send through concurrent.features.ProcessPoolExecutor
+def multi_process_send_futures_P(process_num, data):
+    start=time.time()
+
+    executor=ProcessPoolExecutor()
+    total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
+    packet_num_per_process= int(total_packet / process_num)
+    remained_packets= int(total_packet % process_num)
+    offset=0
+    f = []
+
+    for i in range(process_num):
+        if i != process_num-1:
+            f.append(executor.submit(c_send_wrapper, data[offset: offset+packet_num_per_process * TENSOR_NUM_PER_PACKET],  packet_num_per_process, ip2int(dst_ip_str), 0, 0,offset))
+        else:
+            f.append(executor.submit(c_send_wrapper, data[offset : ], packet_num_per_process + remained_packets, ip2int(dst_ip_str), 0, 0, offset))
+        
+        offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
+    
+    
+    executor.shutdown(wait=True)
+    # for i in range(process_num):
+    #     print(f'task{i}是否完成: {f[i].done()}')
+    end=time.time()
+    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
+
 if __name__ =="__main__":
     test_data=np.arange(100000000, dtype=np.int32)
     data_size=(sys.getsizeof(test_data)-96)/1024/1024/1024 # GB
@@ -72,7 +125,14 @@ if __name__ =="__main__":
     end=time.time()
     print("Single process cost: {} sec; Throuthput {} GBps".format(str(end-start), str(data_size/(end-start))))
     
-    multi_process_send(10, test_data)    
+    print("\n === now testing multiprocessing.Pool ===")
+    multi_process_send(10, test_data)
+    
+    print("\n === now testing features.ThreadPoolExecutor send ===")
+    multi_process_send_futures(10, test_data)
+
+    print("\n === now testing features.ProcessPoolExecutor send ===")
+    multi_process_send_futures_P(10, test_data)
 
     
     
