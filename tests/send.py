@@ -4,6 +4,7 @@ import sys
 import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
+import threading
 
 TENSOR_NUM_PER_PACKET = 128
 AGGREGATOR_SIZE = 199665
@@ -64,7 +65,7 @@ def multi_process_send(process_num, data):
     print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
 
 # multi process send through concurrent.futures.ThreadPoolExecutor
-def multi_process_send_futures(process_num, data):
+def multi_thread_send_futures(process_num, data):
     start=time.time()
 
     executor=ThreadPoolExecutor()
@@ -115,6 +116,46 @@ def multi_process_send_futures_P(process_num, data):
     end=time.time()
     print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
 
+# multi process send through threading
+class myThread(threading.Thread):
+    def __init__(self, threadID, gradient, packet_num, dst_ip, worker_id, aggregator_index, tensor_index):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.gradient = gradient
+        self.packet_num = packet_num
+        self.dst_ip = dst_ip
+        self.worker_id = worker_id
+        self.aggregator_index = aggregator_index
+        self.tensor_index = tensor_index
+    def run(self):
+        c_send_wrapper(self.gradient, self.packet_num, self.dst_ip, self.worker_id, self.aggregator_index, self.tensor_index)
+
+def multi_thread_send_threading(process_num, data):
+    start=time.time()
+
+    total_packet = int(len(data) / TENSOR_NUM_PER_PACKET)
+    packet_num_per_process= int(total_packet / process_num)
+    remained_packets= int(total_packet % process_num)
+    offset=0
+    f = []
+
+    for i in range(process_num):
+        if i != process_num-1:
+            f.append(myThread(i, data[offset: offset+packet_num_per_process * TENSOR_NUM_PER_PACKET],  packet_num_per_process, ip2int(dst_ip_str), 0, 0,offset))
+            f[i].start()
+        else:
+            f.append(myThread(i, data[offset : ], packet_num_per_process + remained_packets, ip2int(dst_ip_str), 0, 0, offset))
+            f[i].start()
+        
+        offset+=packet_num_per_process * TENSOR_NUM_PER_PACKET
+    
+    
+    for i in range(process_num):
+        f[i].join()
+    
+    end=time.time()
+    print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
+
 if __name__ =="__main__":
     test_data=np.arange(100000000, dtype=np.int32)
     data_size=(sys.getsizeof(test_data)-96)/1024/1024/1024 # GB
@@ -127,12 +168,15 @@ if __name__ =="__main__":
     
     print("\n === now testing multiprocessing.Pool ===")
     multi_process_send(10, test_data)
-    
+
     print("\n === now testing features.ThreadPoolExecutor send ===")
-    multi_process_send_futures(10, test_data)
+    multi_thread_send_futures(10, test_data)
 
     print("\n === now testing features.ProcessPoolExecutor send ===")
     multi_process_send_futures_P(10, test_data)
+
+    print("\n === now testing threading send ===")
+    multi_thread_send_threading(10, test_data)
 
     
     
