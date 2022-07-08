@@ -110,8 +110,8 @@ def multi_process_send_futures_P(process_num, data):
     print("{} processes cost: {} sec; Throuthput {} GBps".format(str(process_num), str(end-start), str(data_size/(end-start))))
 
 if __name__ =="__main__":
-    data_len=1000000
-    thread_num=20
+    data_len=10000000
+    thread_num=30
     test_data=np.arange(data_len, dtype=np.int32)
     data_size=(sys.getsizeof(test_data)-96)/1024/1024/1024 # GB
     print("Test data {} GB".format(str(data_size)))
