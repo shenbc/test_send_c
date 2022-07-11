@@ -24,7 +24,7 @@ struct packet_t {
 std::thread** thread_pool;
 
 void _send_gradients(__u32 *tensor_array,int packet_num, __u32 dst_ip, int worker_id, __u32 aggregator_index, int tensor_index);
-void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, string dst_ip, int worker_id, int aggregator_index, int tensor_index);
+void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, char *dst_ip, int worker_id, int aggregator_index, int tensor_index);
 extern "C"{
-    void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, unsigned int dst_ip, int worker_id, int aggregator_index, int tensor_index);
+    void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, char *dst_ip, int worker_id, int aggregator_index, int tensor_index);
 }

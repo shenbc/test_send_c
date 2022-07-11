@@ -50,15 +50,17 @@ void _send_gradients(__u32 *tensor_array, int packet_num, __u32 dst_ip, int work
 	return;
 }
 
-void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, string dst_ip, int worker_id, int aggregator_index, int tensor_index){
+void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, char *dst_ip, int worker_id, int aggregator_index, int tensor_index){
     int element_num_per_thread= array_len/thread_num;
     int start_index = thread_id *  element_num_per_thread;
     int packet_num_per_thread = element_num_per_thread/TENSOR_NUM_PER_PACKET;
     
     // _send_gradients(&tensor_array[start_index], packet_num_per_thread, inet_addr("172.16.200.32"),1,1,1);
-    _send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip.c_str()),worker_id,aggregator_index,tensor_index);
+    //_send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip.c_str()),worker_id,aggregator_index,tensor_index);
+    _send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip),worker_id,aggregator_index,tensor_index);
 }
 
+/*
 string int2ip(unsigned int ipInt){
     string ip;
     string ipSec;
@@ -79,13 +81,16 @@ string int2ip(unsigned int ipInt){
     }
     return ip;
 }
+*/
 
-void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, unsigned int dst_ip, int worker_id, int aggregator_index, int tensor_index){
-    string str_dst_ip = int2ip(dst_ip);
+//void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, unsigned int dst_ip, int worker_id, int aggregator_index, int tensor_index)
+void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, char *dst_ip, int worker_id, int aggregator_index, int tensor_index){
+    //string str_dst_ip = int2ip(dst_ip);
+    printf("arrat len: %d,thread num: %d, dstip: %s, worker id: %d, agg idx: %d, tensor idx: %d\n",array_len,thread_num,dst_ip,worker_id,aggregator_index,tensor_index);
     thread_pool = new std::thread*[thread_num];
     
     for (int i=0; i < thread_num; i++){
-        thread_pool[i] = new std::thread(_thread_send_gradients, i, thread_num, tensor_array, array_len, str_dst_ip, worker_id, aggregator_index, tensor_index);
+        thread_pool[i] = new std::thread(_thread_send_gradients, i, thread_num, tensor_array, array_len, dst_ip, worker_id, aggregator_index, tensor_index);
     }
 
     for (int i=0; i < thread_num; i++){
