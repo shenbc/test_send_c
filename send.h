@@ -10,7 +10,7 @@
 #include <thread>
 #include <linux/if_ether.h>
 #include <linux/in.h>
-
+#include <sched.h>
 
 #define TENSOR_NUM_PER_PACKET 128
 
@@ -27,4 +27,16 @@ void _send_gradients(__u32 *tensor_array,int packet_num, __u32 dst_ip, int worke
 void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, char *dst_ip, int worker_id, int aggregator_index, int tensor_index);
 extern "C"{
     void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, char *dst_ip, int worker_id, int aggregator_index, int tensor_index);
+}
+
+inline void bindingCPU(int num) {
+  int result;
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  CPU_SET(num, &mask);
+  result = sched_setaffinity(0, sizeof(mask), &mask);
+  if (result < 0) {
+    printf("binding CPU fails\n");
+    exit(1);
+  }
 }
