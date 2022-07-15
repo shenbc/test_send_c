@@ -1,0 +1,3 @@
+These P4 codes contain the aggregation procedure in the data plane. Specifically, the switch first check the _switch id_ of arrival packets. If they match, the switch will perform aggregation, otherwise the switch directly forward the packet.
+
+For each matched packet, the switch checks the _aggregator index_ of the corresponding fragment with the given _tensor index_ **(to be implemented)**. If the packet's _tensor index_ does not equal to the _tensor index_ of the _aggregator index_, the switch set _is collision_ to 1, and forwards the packets.
