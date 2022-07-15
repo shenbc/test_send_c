@@ -8,8 +8,8 @@ using namespace std;
 
 int total_cpu_cores;
 
-void _send_gradients(__u32 *tensor_array, int packet_num, __u32 dst_ip, int worker_id, __u32 aggregator_index, int tensor_index) {
-    // TODO: remove socket inition from this function.
+void _send_gradients(__u32 *tensor_array, int packet_num, __u32 dst_ip, int worker_id, char count, __u32 aggregator_index, int tensor_index) {
+
     int socket_fd;
 	struct sockaddr_in sock_send;
     memset(&sock_send, 0, sizeof(struct sockaddr_in));
@@ -33,14 +33,14 @@ void _send_gradients(__u32 *tensor_array, int packet_num, __u32 dst_ip, int work
         struct packet_t packet;
 
         packet.worker_bitmap = htonl(bitmap);
+        packet.tensor_index = htonl(tensor_index + i * TENSOR_NUM_PER_PACKET);
         packet.aggregator_index= htonl(aggregator_index);
-        packet.gradient_index = htonl(tensor_index + i);
-        memcpy(packet.gradient, tensor_array + i * TENSOR_NUM_PER_PACKET, TENSOR_NUM_PER_PACKET * sizeof(__u32));
+        memcpy(packet.tensor, tensor_array + i * TENSOR_NUM_PER_PACKET, TENSOR_NUM_PER_PACKET * sizeof(__u32));
 
         // for endian conversion
         for (int j=0; j<TENSOR_NUM_PER_PACKET ; j++)
         {
-            packet.gradient[j] = htonl(packet.gradient[j]);
+            packet.tensor[j] = htonl(packet.tensor[j]);
         }
         
 	    if(sendto(socket_fd, &packet, sizeof(struct packet_t), 0, (struct sockaddr *)&sock_send, sizeof(struct sockaddr_in)) < 0){
@@ -55,20 +55,16 @@ void _send_gradients(__u32 *tensor_array, int packet_num, __u32 dst_ip, int work
 	return;
 }
 
-void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, char *dst_ip, int worker_id, int aggregator_index, int tensor_index){
+void _thread_send_gradients(int thread_id, int thread_num, __u32 *tensor_array, int array_len, char *dst_ip, int worker_id, char count, int aggregator_index, int tensor_index){
     int bind_core = rand() % total_cpu_cores;
     bindingCPU(bind_core);
     printf("possess bind on core %d\n",bind_core);
-
-
 
     int element_num_per_thread= array_len/thread_num;
     int start_index = thread_id *  element_num_per_thread;
     int packet_num_per_thread = element_num_per_thread/TENSOR_NUM_PER_PACKET;
     
-    // _send_gradients(&tensor_array[start_index], packet_num_per_thread, inet_addr("172.16.200.32"),1,1,1);
-    //_send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip.c_str()),worker_id,aggregator_index,tensor_index);
-    _send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip),worker_id,aggregator_index,tensor_index);
+    _send_gradients(&tensor_array[start_index], packet_num_per_thread,inet_addr(dst_ip),worker_id, count, aggregator_index,tensor_index);
 }
 
 /*
@@ -94,8 +90,7 @@ string int2ip(unsigned int ipInt){
 }
 */
 
-//void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, unsigned int dst_ip, int worker_id, int aggregator_index, int tensor_index)
-void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, char *dst_ip, int worker_id, int aggregator_index, int tensor_index){
+void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thread_num, char *dst_ip, int worker_id, char count, int aggregator_index, int tensor_index){
     //string str_dst_ip = int2ip(dst_ip);
     printf("arrat len: %d,thread num: %d, dstip: %s, worker id: %d, agg idx: %d, tensor idx: %d\n",array_len,thread_num,dst_ip,worker_id,aggregator_index,tensor_index);
     
@@ -103,13 +98,12 @@ void multiple_threads_send_gradient(__u32 *tensor_array, int array_len, int thre
     total_cpu_cores = sysconf (_SC_NPROCESSORS_CONF);
     printf("cpu has %d cores\n",total_cpu_cores);
 
-    
     thread_pool = new std::thread*[thread_num];
     
     clock_t start, end;
     start=clock();
     for (int i=0; i < thread_num; i++){
-        thread_pool[i] = new std::thread(_thread_send_gradients, i, thread_num, tensor_array, array_len, dst_ip, worker_id, aggregator_index, tensor_index);
+        thread_pool[i] = new std::thread(_thread_send_gradients, i, thread_num, tensor_array, array_len, dst_ip, worker_id, count, aggregator_index, tensor_index);
     }
 
     for (int i=0; i < thread_num; i++){
