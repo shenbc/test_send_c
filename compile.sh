@@ -1,1 +1,1 @@
-gcc send.c -fpic -shared -O3 -o send.so
+g++ -pthread -shared -O3 -fPIC -std=c++11 -o send.so send.cc 
