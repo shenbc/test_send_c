@@ -63,8 +63,21 @@ control Ingress(
 
     Register<bit<8>,index_t>(NUM_REGISTER, 0) count_reg; 
     
-    RegisterAction<bit<8>, index_t, bit<8>>(count_reg) read_add_count = {
-        void apply(inout bit<8> value, out bit<8> read_value) {
+    // RegisterAction<bit<8>, index_t, bit<8>>(count_reg) read_add_count = {
+    //     void apply(inout bit<8> value, out bit<8> read_value) {
+    //         value = value+1;
+            
+    //         if(value == hdr.lina.count){
+    //             value=0;
+    //             read_value = value;
+    //         }
+    //         else{
+    //             read_value = value;
+    //         }
+    //     }
+    // };
+    RegisterAction<bit<4>, index_t, bit<4>>(count_reg) read_add_count = {
+        void apply(inout bit<4> value, out bit<4> read_value) {
             value = value+1;
             
             if(value == hdr.lina.count){

@@ -86,6 +86,7 @@ struct metadata_t {
     bit<4>  is_collision;
     b32_t tensor_index;
     b32_t aggregator_index;
+    bit<32>  index;
 }
 
 

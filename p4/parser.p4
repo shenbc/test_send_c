@@ -26,7 +26,7 @@ parser IngressParser(
     state meta_init {
         ig_md.is_aggregation= 0;
         ig_md.count=0;
-        ig_md.collision=0;
+        ig_md.is_collision=0;
         ig_md.index=0;
         transition parse_ethernet;
     }
@@ -43,14 +43,14 @@ parser IngressParser(
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
         transition select(hdr.ipv4.protocol) {
-            TYPE_NGAA: parse_ngaa;
+            TYPE_LINA: parse_ngaa;
             default: accept;
         }
     }
 
     state parse_ngaa {
-        pkt.extract(hdr.ngaa);
-        pkt.extract(hdr.gradient);
+        pkt.extract(hdr.lina);
+        pkt.extract(hdr.tensor);
         transition accept;
     }
 }
