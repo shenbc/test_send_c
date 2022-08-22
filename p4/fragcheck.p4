@@ -19,6 +19,7 @@ control Fragcheck(
             }
             else{
                 out_value=value;
+                //out_value = mod((value), 16384)
             }
         }
     };
